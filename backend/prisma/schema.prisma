@@ -1,0 +1,73 @@
+// Prisma schema — https://pris.ly/d/prisma-schema
+// Connection URL lives in prisma7.config.ts (read from DATABASE_URL in .env).
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String // bcrypt hash
+  firstName String
+  lastName  String
+  role      Role     @default(STUDENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Class-subject pairs this user teaches (TEACHER role)
+  teachingAssignments ClassSubject[]
+}
+
+model Class {
+  id           String   @id @default(cuid())
+  name         String // e.g. "Grade 5"
+  section      String? // e.g. "A"
+  academicYear String // e.g. "2026-2027"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subjects ClassSubject[]
+
+  @@unique([name, section, academicYear])
+}
+
+model Subject {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique // e.g. "MATH-101"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classes ClassSubject[]
+}
+
+// Join table: which subjects a class takes, and who teaches each one
+model ClassSubject {
+  classId   String
+  subjectId String
+  teacherId String?
+
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher User?   @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+
+  assignedAt DateTime @default(now())
+
+  @@id([classId, subjectId])
+  @@index([teacherId])
+}
